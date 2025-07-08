@@ -3,32 +3,57 @@ package controllers
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"simple_web_tool/config"
 	"simple_web_tool/services"
 	"simple_web_tool/models"
 )
 
 // ConfigureDB 处理数据库配置
 func ConfigureDB(c *gin.Context) {
-	var conf config.DBConfig
-	if err := c.ShouldBindJSON(&conf); err != nil {
+	type ConfigRequest struct {
+		ConfigName string `json:"config_name" binding:"required"`
+	}
+
+	var req ConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": "无效的配置参数"})
 		return
 	}
 
-	if err := services.InitDB(conf); err != nil {
-		c.JSON(500, gin.H{"error": "数据库连接失败"})
+	if err := services.InitDB(req.ConfigName); err != nil {
+		c.JSON(500, gin.H{"error": fmt.Sprintf("数据库连接失败: %v", err)})
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "数据库连接成功"})
+	c.JSON(200, gin.H{"message": fmt.Sprintf("数据库 %s 连接成功", req.ConfigName)})
+}
+
+// UpdateDBConfig 更新数据库配置
+func UpdateDBConfig(c *gin.Context) {
+	type UpdateConfigRequest struct {
+		ConfigName string `json:"config_name" binding:"required"`
+		Config    config.DBConfig `json:"config" binding:"required"`
+	}
+
+	var req UpdateConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "无效的配置参数"})
+		return
+	}
+
+	if err := config.UpdateDBConfig(req.ConfigName, req.Config); err != nil {
+		c.JSON(500, gin.H{"error": fmt.Sprintf("更新配置失败: %v", err)})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": fmt.Sprintf("数据库配置 %s 更新成功", req.ConfigName)})
 }
 
 // QueryData 处理数据查询
 func QueryData(c *gin.Context) {
-	db := services.GetDB()
-	if db == nil {
-		c.JSON(500, gin.H{"error": "数据库未连接"})
+	configName := c.DefaultQuery("db", "default")
+	db, err := services.GetDB(configName)
+	if err != nil {
+		c.JSON(500, gin.H{"error": fmt.Sprintf("数据库连接错误: %v", err)})
 		return
 	}
 

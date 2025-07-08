@@ -1,13 +1,39 @@
+// 更新配置表单提交
+document.getElementById('updateConfigForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = {
+        config_name: formData.get('config_name'),
+        config: {
+            host: formData.get('host'),
+            port: formData.get('port'),
+            user: formData.get('user'),
+            password: formData.get('password'),
+            dbname: formData.get('dbname')
+        }
+    };
+
+    try {
+        const response = await fetch('/api/update-config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        alert(result.message || result.error);
+    } catch (error) {
+        alert('更新配置失败：' + error.message);
+    }
+});
+
 // 数据库配置表单提交
 document.getElementById('dbConfigForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const config = {
-        host: formData.get('host'),
-        port: formData.get('port'),
-        user: formData.get('user'),
-        password: formData.get('password'),
-        dbname: 'test'
+        config_name: formData.get('config_name')
     };
 
     try {
@@ -31,9 +57,10 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
     const formData = new FormData(e.target);
     const bid = formData.get('bid');
     const bname = formData.get('bname');
+    const db = formData.get('db');
 
     try {
-        const response = await fetch(`/api/query?bid=${bid}&bname=${bname}`);
+        const response = await fetch(`/api/query?bid=${bid}&bname=${bname}&db=${db}`);
         const data = await response.json();
         
         if (data.error) {

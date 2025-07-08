@@ -19,11 +19,27 @@
     <div class="config-form">
         <h2>数据库配置</h2>
         <form id="dbConfigForm">
+            <select name="config_name" required>
+                <option value="default">默认配置</option>
+                <option value="development">开发环境</option>
+                <option value="production">生产环境</option>
+            </select>
+            <button type="submit">连接数据库</button>
+        </form>
+
+        <h3>更新配置</h3>
+        <form id="updateConfigForm">
+            <select name="config_name" required>
+                <option value="default">默认配置</option>
+                <option value="development">开发环境</option>
+                <option value="production">生产环境</option>
+            </select>
             <input type="text" name="host" placeholder="服务器IP" required>
             <input type="text" name="port" placeholder="端口" required>
             <input type="text" name="user" placeholder="用户名" required>
             <input type="password" name="password" placeholder="密码" required>
-            <button type="submit">连接数据库</button>
+            <input type="text" name="dbname" placeholder="数据库名" required>
+            <button type="submit">更新配置</button>
         </form>
     </div>
 
@@ -31,6 +47,11 @@
     <div class="search-form">
         <h2>数据查询</h2>
         <form id="searchForm">
+            <select name="db">
+                <option value="default">默认配置</option>
+                <option value="development">开发环境</option>
+                <option value="production">生产环境</option>
+            </select>
             <input type="text" name="bid" placeholder="输入bid">
             <input type="text" name="bname" placeholder="输入bname">
             <button type="submit">查询</button>

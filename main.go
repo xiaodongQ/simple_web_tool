@@ -1,11 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"simple_web_tool/controllers"
+	"simple_web_tool/services"
 )
 
 func main() {
+	// 初始化默认数据库连接
+	if err := services.InitDefaultDB(); err != nil {
+		panic(fmt.Sprintf("初始化默认数据库失败: %v", err))
+	}
+
 	r := gin.Default()
 
 	// 加载HTML模板
@@ -15,6 +22,7 @@ func main() {
 
 	// API路由
 	r.POST("/api/configure-db", controllers.ConfigureDB)
+	r.POST("/api/update-config", controllers.UpdateDBConfig)
 	r.GET("/api/query", controllers.QueryData)
 
 	// 页面路由
