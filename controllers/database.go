@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"simple_web_tool/config"
 	"simple_web_tool/services"
 	"simple_web_tool/models"
 )
