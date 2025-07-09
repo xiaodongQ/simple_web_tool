@@ -1,95 +1,50 @@
-// 更新配置表单提交
-document.getElementById('updateConfigForm').addEventListener('submit', async (e) => {
+document.addEventListener('DOMContentLoaded', () => {
+  // 加载用户统计数据
+  fetch('/api/users')
+    .then(res => res.json())
+    .then(data => {
+      const tbody = document.getElementById('userList');
+      tbody.innerHTML = data.map(user => `
+        <tr onclick="loadPartitions(${user.id})">
+          <td>${user.name}</td>
+          <td>${user.total_files}</td>
+          <td>${formatSize(user.total_size)}</td>
+          <td>${user.partitions.join(', ')}</td>
+        </tr>
+      `).join('');
+    });
+
+  // 数据库配置表单提交
+  document.getElementById('dbConfigForm').addEventListener('submit', e => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = {
-        config_name: formData.get('config_name'),
-        config: {
-            host: formData.get('host'),
-            port: formData.get('port'),
-            user: formData.get('user'),
-            password: formData.get('password'),
-            dbname: formData.get('dbname')
-        }
-    };
-
-    try {
-        const response = await fetch('/api/update-config', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-        const result = await response.json();
-        alert(result.message || result.error);
-    } catch (error) {
-        alert('更新配置失败：' + error.message);
-    }
+    fetch('/api/configure-db', {
+      method: 'POST',
+      body: JSON.stringify(Object.fromEntries(formData)),
+      headers: {'Content-Type': 'application/json'}
+    }).then(handleResponse);
+  });
 });
 
-// 数据库配置表单提交
-document.getElementById('dbConfigForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const config = {
-        config_name: formData.get('config_name')
-    };
+function loadPartitions(userId) {
+  fetch(`/api/partitions/${userId}`)
+    .then(res => res.json())
+    .then(renderPartitionGrid);
+}
 
-    try {
-        const response = await fetch('/api/configure-db', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(config)
-        });
-        const data = await response.json();
-        alert(data.message || data.error);
-    } catch (error) {
-        alert('配置失败：' + error.message);
-    }
-});
+function renderPartitionGrid(partitions) {
+  const container = document.getElementById('partitionDetails');
+  container.innerHTML = `<div class="partition-grid">
+    ${Array(256).fill().map((_,i) => {
+      const p = partitions.find(v => v.partition === i.toString(16).padStart(2,'0'));
+      return `<div class="partition-cell bg-${p ? 'success' : 'secondary'}">${i.toString(16).padStart(2,'0')}</div>`;
+    }).join('')}
+  </div>`;
+}
 
-// 搜索表单提交
-document.getElementById('searchForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const bid = formData.get('bid');
-    const bname = formData.get('bname');
-    const db = formData.get('db');
-
-    try {
-        const response = await fetch(`/api/query?bid=${bid}&bname=${bname}&db=${db}`);
-        const data = await response.json();
-        
-        if (data.error) {
-            alert(data.error);
-            return;
-        }
-
-        // 显示结果
-        const resultsDiv = document.getElementById('results');
-        let html = '<h3>查询结果</h3>';
-        
-        // 显示主表数据
-        html += '<h4>主表数据</h4>';
-        html += '<table border="1"><tr><th>BID</th><th>BName</th><th>User</th><th>Partition</th></tr>';
-        data.main_data.forEach(item => {
-            html += `<tr><td>${item.bid}</td><td>${item.bname}</td><td>${item.user}</td><td>${item.partition}</td></tr>`;
-        });
-        html += '</table>';
-
-        // 显示详情数据
-        html += '<h4>详情数据</h4>';
-        html += '<table border="1"><tr><th>FID</th><th>FName</th><th>BID</th><th>FSize</th></tr>';
-        data.details.forEach(item => {
-            html += `<tr><td>${item.fid}</td><td>${item.fname}</td><td>${item.bid}</td><td>${item.fsize}</td></tr>`;
-        });
-        html += '</table>';
-
-        resultsDiv.innerHTML = html;
-    } catch (error) {
-        alert('查询失败：' + error.message);
-    }
-});
+function formatSize(bytes) {
+  const units = ['B','KB','MB','GB'];
+  let size = bytes, unit = 0;
+  while (size >= 1024 && unit < 3) { size /= 1024; unit++; }
+  return `${size.toFixed(2)} ${units[unit]}`;
+}

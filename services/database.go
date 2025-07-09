@@ -2,61 +2,71 @@ package services
 
 import (
 	"fmt"
-	"sync"
+	"hash/crc32"
 	"simple_web_tool/config"
-	"gorm.io/driver/mysql"
+	"simple_web_tool/models"
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/driver/mysql"
 )
 
-// DBConnections 存储多个数据库连接
-var DBConnections = make(map[string]*gorm.DB)
-var dbMutex sync.RWMutex
+var (
+	dbConnections = make(map[string]*gorm.DB)
+)
 
-// InitDB 初始化指定配置的数据库连接
-func InitDB(configName string) error {
-	conf, exists := config.GetDBConfig(configName)
-	if !exists {
-		return fmt.Errorf("database config '%s' not found", configName)
-	}
-
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		conf.User,
-		conf.Password,
-		conf.Host,
-		conf.Port,
-		conf.DBName)
-
+func UpdateDatabaseConfig(configName string, cfg config.DBConfig) error {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
+		cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return err
+		return fmt.Errorf("连接失败: %v", err)
 	}
-
-	dbMutex.Lock()
-	DBConnections[configName] = db
-	dbMutex.Unlock()
-
-	return nil
+	dbConnections[configName] = db
+	return config.SaveConfig(config.GetCurrentConfig())
 }
 
-// GetDB 获取指定配置的数据库连接
-func GetDB(configName string) (*gorm.DB, error) {
-	dbMutex.RLock()
-	defer dbMutex.RUnlock()
-
-	db, exists := DBConnections[configName]
-	if !exists {
-		return nil, fmt.Errorf("database connection '%s' not initialized", configName)
+func GetDatabaseStats() map[string]interface{} {
+	stats := make(map[string]interface{})
+	for name, db := range dbConnections {
+		sqlDB, _ := db.DB()
+		stats[name] = gin.H{
+			"max_open_conns": sqlDB.Stats().MaxOpenConnections,
+			"in_use":        sqlDB.Stats().InUse,
+		}
 	}
-
-	return db, nil
+	return stats
 }
 
-// GetDefaultDB 获取默认数据库连接
-func GetDefaultDB() (*gorm.DB, error) {
-	return GetDB("default")
+func GetUserStatistics() map[string]interface{} {
+	var count int64
+	dbConnections["default"].Model(&models.User{}).Count(&count)
+	return gin.H{
+		"total_users": count,
+		"db_status":   GetDatabaseStats(),
+	}
 }
 
-// InitDefaultDB 初始化默认数据库连接
-func InitDefaultDB() error {
-	return InitDB("default")
+func CalculatePartition(bucketID string) string {
+	var bucket models.Bucket
+	dbConnections["default"].First(&bucket, "bid = ?", bucketID)
+	return bucket.Partition
+}
+
+func QueryPartitionFiles(bid string, fname string) []models.BucketFile {
+	query := dbConnections["default"].Table(CalculatePartition(bid))
+	
+	if bid != "" {
+		query = query.Where("bucket_id = ?", bid)
+	}
+	if fname != "" {
+		query = query.Where("file_name LIKE ?", "%"+fname+"%")
+	}
+	
+	var files []models.BucketFile
+	query.Find(&files)
+	return files
+}
+
+func GetAllConfigs() map[string]config.DBConfig {
+	return config.GetCurrentConfig().Databases
 }

@@ -1,93 +1,55 @@
 package controllers
 
 import (
-	"fmt"
-	"github.com/gin-gonic/gin"
 	"simple_web_tool/config"
 	"simple_web_tool/services"
-	"simple_web_tool/models"
+	
+	"github.com/gin-gonic/gin"
 )
 
-// ConfigureDB 处理数据库配置
-func ConfigureDB(c *gin.Context) {
-	type ConfigRequest struct {
-		ConfigName string `json:"config_name" binding:"required"`
-	}
-
-	var req ConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "无效的配置参数"})
-		return
-	}
-
-	if err := services.InitDB(req.ConfigName); err != nil {
-		c.JSON(500, gin.H{"error": fmt.Sprintf("数据库连接失败: %v", err)})
-		return
-	}
-
-	c.JSON(200, gin.H{"message": fmt.Sprintf("数据库 %s 连接成功", req.ConfigName)})
-}
-
-// UpdateDBConfig 更新数据库配置
-func UpdateDBConfig(c *gin.Context) {
-	type UpdateConfigRequest struct {
-		ConfigName string `json:"config_name" binding:"required"`
-		Config    config.DBConfig `json:"config" binding:"required"`
-	}
-
-	var req UpdateConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "无效的配置参数"})
-		return
-	}
-
-	if err := config.UpdateDBConfig(req.ConfigName, req.Config); err != nil {
-		c.JSON(500, gin.H{"error": fmt.Sprintf("更新配置失败: %v", err)})
-		return
-	}
-
-	c.JSON(200, gin.H{"message": fmt.Sprintf("数据库配置 %s 更新成功", req.ConfigName)})
-}
-
-// QueryData 处理数据查询
-func QueryData(c *gin.Context) {
-	configName := c.DefaultQuery("db", "default")
-	db, err := services.GetDB(configName)
-	if err != nil {
-		c.JSON(500, gin.H{"error": fmt.Sprintf("数据库连接错误: %v", err)})
-		return
-	}
-
-	bid := c.Query("bid")
-	bname := c.Query("bname")
-
-	var results []models.TableA
-	query := db
-	if bid != "" {
-		query = query.Where("bid = ?", bid)
-	}
-	if bname != "" {
-		query = query.Where("bname = ?", bname)
-	}
-
-	if err := query.Find(&results).Error; err != nil {
-		c.JSON(500, gin.H{"error": "查询失败"})
-		return
-	}
-
-	// 获取详细信息
-	var details []models.TableADetail
-	for _, result := range results {
-		var tableDetails []models.TableADetail
-		tableName := fmt.Sprintf("A_%s", result.Partition)
-		if err := db.Table(tableName).Where("bid = ?", result.Bid).Find(&tableDetails).Error; err != nil {
-			continue
-		}
-		details = append(details, tableDetails...)
-	}
-
-	c.JSON(200, gin.H{
-		"main_data": results,
-		"details": details,
+func IndexHandler(c *gin.Context) {
+	c.HTML(200, "index.html", gin.H{
+		"Title": "文件存储管理系统",
 	})
+}
+
+func ConfigureDB(c *gin.Context) {
+	var initConfig config.DBConfig
+	if err := c.ShouldBindJSON(&initConfig); err != nil {
+		c.JSON(400, gin.H{"error": "无效的配置格式"})
+		return
+	}
+	
+	config.UpdateDBConfig("default", initConfig)
+	c.JSON(200, gin.H{"status": "数据库配置已初始化"})
+}
+
+func UpdateDBConfig(c *gin.Context) {
+	configName := c.PostForm("config_name")
+	var newConfig config.DBConfig
+	if err := c.ShouldBindJSON(&newConfig); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	if err := services.UpdateDatabaseConfig(configName, newConfig); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+	}
+	c.JSON(200, gin.H{"status": "updated"})
+}
+
+func GetUserStats(c *gin.Context) {
+	stats := services.GetUserStatistics()
+	c.JSON(200, stats)
+}
+
+func GetPartitionDetails(c *gin.Context) {
+	bid := c.Query("bid")
+	fname := c.Query("fname")
+	details := services.QueryPartitionFiles(bid, fname)
+	c.JSON(200, details)
+}
+
+func ListDBConfigs(c *gin.Context) {
+	current := config.GetCurrentConfig()
+	c.JSON(200, current.Databases)
 }

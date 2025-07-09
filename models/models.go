@@ -1,21 +1,27 @@
 package models
 
-type TableA struct {
-	Bid       string `gorm:"primary_key"`
-	Bname     string
-	User      string
+import "gorm.io/gorm"
+
+type User struct {
+	gorm.Model
+	Username string `gorm:"uniqueIndex"`
+}
+
+type Bucket struct {
+	gorm.Model
+	BucketID  string `gorm:"uniqueIndex"`
+	UserID    uint
 	Partition string
 }
 
-type TableADetail struct {
-	Fid    string `gorm:"primary_key"`
-	Fname  string
-	Bid    string
-	Fsize  int64
+type BucketFile struct {
+	gorm.Model
+	FileName string
+	BucketID string
 }
 
-type User struct {
-	User       string `gorm:"primary_key"`
-	Name       string
-	Attributes string
+import "fmt"
+
+func (b BucketFile) TableName() string {
+    return fmt.Sprintf("bucket_files_%s", services.CalculatePartition(b.BucketID))
 }
