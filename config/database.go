@@ -1,9 +1,11 @@
 package config
 
 import (
-	"gopkg.in/yaml.v3"
+	"fmt"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 type DBConfig struct {
@@ -12,6 +14,15 @@ type DBConfig struct {
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	DBName   string `yaml:"dbname"`
+}
+
+func (c *DBConfig) GetDSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+		c.User,
+		c.Password,
+		c.Host,
+		c.Port,
+		c.DBName)
 }
 
 type Config struct {

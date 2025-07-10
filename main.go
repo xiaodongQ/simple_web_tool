@@ -1,14 +1,23 @@
 package main
 
 import (
-	"simple_web_tool/controllers"
+	"log"
 	"simple_web_tool/config"
-	
+	"simple_web_tool/controllers"
+	"simple_web_tool/services"
+
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	config.LoadConfig()
+	if err := config.LoadConfig(); err != nil {
+		log.Fatalf("加载配置文件失败: %v", err)
+	}
+
+	// 初始化数据库连接
+	if err := services.InitDatabase(); err != nil {
+		log.Fatalf("数据库初始化失败: %v", err)
+	}
 
 	r := gin.Default()
 	r.Static("/static", "./static")
