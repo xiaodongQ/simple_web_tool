@@ -1,0 +1,78 @@
+{{define "content"}}
+<h1>Files in Partition {{.Part}}</h1>
+
+<div class="search-panel">
+    <form onsubmit="searchFiles(event)">
+        <input type="hidden" name="user" value="{{.UserID}}">
+        <input type="hidden" name="part" value="{{.Part}}">
+        
+        <div class="form-group">
+            <label>File ID:</label>
+            <input type="text" name="fid" placeholder="Filter by File ID">
+        </div>
+        
+        <div class="form-group">
+            <label>Filename:</label>
+            <input type="text" name="fname" placeholder="Filter by filename">
+        </div>
+        
+        <button type="submit" class="btn">Search</button>
+    </form>
+</div>
+
+{{if .Files}}
+<table>
+    <thead>
+        <tr>
+            <th>File ID</th>
+            <th>Filename</th>
+            <th>Bucket ID</th>
+            <th>Size</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Files}}
+        <tr>
+            <td>{{.FID}}</td>
+            <td>{{.FName}}</td>
+            <td>{{.BID}}</td>
+            <td>{{.FSize}}</td>
+            <td>{{.Status}}</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p>No files found in this partition.</p>
+{{end}}
+
+<script>
+function searchFiles(e) {
+    e.preventDefault();
+    const form = e.target;
+    const btn = form.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = 'Searching...';
+    
+    const params = new URLSearchParams(new FormData(form));
+    
+    fetch(`/files?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        document.getElementById('content').innerHTML = html;
+        btn.disabled = false;
+        btn.textContent = 'Search';
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        btn.disabled = false;
+        btn.textContent = 'Search';
+    });
+}
+</script>
+{{end}}

@@ -1,0 +1,68 @@
+{{define "content"}}
+<h1>User Statistics</h1>
+
+<div class="config-panel">
+    <h2>Database Connection</h2>
+    <select id="db-select">
+        {{range $i, $config := .Configs}}
+        <option value="{{$i}}">{{$config.Host}}:{{$config.Port}} - {{$config.DBName}}</option>
+        {{end}}
+    </select>
+    <button class="btn" onclick="loadUserStats()">Load</button>
+</div>
+
+<div id="user-stats">
+    {{if .Users}}
+    <table>
+        <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Username</th>
+                <th>Total Files</th>
+                <th>Total Size</th>
+                <th>Partitions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Users}}
+            <tr>
+                <td>{{.ID}}</td>
+                <td>{{.Username}}</td>
+                <td>{{.TotalFiles}}</td>
+                <td>{{.TotalSize}}</td>
+                <td>
+                    {{range .Partitions}}
+                    <a href="/files?user={{$.ID}}&part={{.Part}}">{{.Part}} ({{.Count}} files, {{.Size}})</a><br>
+                    {{end}}
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p>No user data available. Please select a database connection.</p>
+    {{end}}
+</div>
+
+<script>
+function loadUserStats() {
+    const btn = document.getElementById('load-btn');
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+    
+    const dbIndex = document.getElementById('db-select').value;
+    fetch(`/user-stats?db=${dbIndex}`)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('user-stats').innerHTML = html;
+            btn.disabled = false;
+            btn.textContent = 'Load';
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            btn.disabled = false;
+            btn.textContent = 'Load';
+        });
+}
+</script>
+{{end}}

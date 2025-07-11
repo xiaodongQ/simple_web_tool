@@ -1,0 +1,63 @@
+{{define "content"}}
+<h1>Database Configuration</h1>
+
+<form id="config-form" onsubmit="saveConfig(event)">
+    {{range $i, $config := .Configs}}
+    <div class="config-group">
+        <h3>Database {{$i}}</h3>
+        <div class="form-group">
+            <label>Host:</label>
+            <input type="text" name="host_{{$i}}" value="{{$config.Host}}">
+        </div>
+        <div class="form-group">
+            <label>Port:</label>
+            <input type="text" name="port_{{$i}}" value="{{$config.Port}}">
+        </div>
+        <div class="form-group">
+            <label>Username:</label>
+            <input type="text" name="user_{{$i}}" value="{{$config.User}}">
+        </div>
+        <div class="form-group">
+            <label>Password:</label>
+            <input type="password" name="pass_{{$i}}" value="{{$config.Password}}">
+        </div>
+        <div class="form-group">
+            <label>Database:</label>
+            <input type="text" name="dbname_{{$i}}" value="{{$config.DBName}}">
+        </div>
+    </div>
+    {{end}}
+    <button type="submit" class="btn">Save</button>
+</form>
+
+<script>
+function saveConfig(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    
+    const formData = new FormData(document.getElementById('config-form'));
+    
+    fetch('/config', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.text())
+    .then(text => {
+        alert(text);
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        alert('Error saving configuration');
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    });
+}
+</script>
+{{end}}
