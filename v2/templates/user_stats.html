@@ -3,7 +3,7 @@
 
 <div class="config-panel">
     <h2>Database Connection</h2>
-    <select id="db-select" disabled>
+    <select id="db-select" disabled >
         {{range $i, $config := .Configs}}
         <option value="{{$i}}" {{if eq (printf "%d" $i) $.SelectedDBIndex}}selected{{end}}>{{$config.Host}}:{{$config.Port}} - {{$config.User}} - {{$config.DBName}}</option>
         {{end}}
@@ -14,6 +14,21 @@
 <div id="user-stats-content">
     {{template "user_stats_content.html" .}}
 </div>
+
+<div class="config-panel">
+    <h2>Search Specific Bucket</h2>
+    <div class="form-group">
+        <label for="search-bid-input">Bucket ID:</label>
+        <input type="text" id="search-bid-input" placeholder="Enter Bucket ID">
+    </div>
+    <div class="form-group">
+        <label for="search-bname-input">Bucket Name:</label>
+        <input type="text" style="width: 200px;" id="search-bname-input" placeholder="Enter Bucket Name (exact match)">
+    </div>
+    <button class="btn" onclick="loadBucketStats()" id="search-bucket-btn">Search Bucket</button>
+</div>
+
+<div id="bucket-stats-content"></div>
 
 <script>
 function loadUserStats() {
@@ -49,7 +64,52 @@ function loadUserStats() {
         console.error('Error:', err);
         btn.disabled = false;
         btn.textContent = 'Load';
-        document.getElementById('user-stats-content').innerHTML = 
+        document.getElementById('user-stats-content').innerHTML =
+            `<p class="error">Error loading data: ${err.message}</p>`;
+    });
+}
+
+function loadBucketStats() {
+    const btn = document.getElementById('search-bucket-btn');
+    btn.disabled = true;
+    btn.textContent = 'Searching...';
+
+    const dbSelect = document.getElementById('db-select');
+    const dbIndex = dbSelect.value;
+    const bid = document.getElementById('search-bid-input').value.trim();
+    const bname = document.getElementById('search-bname-input').value.trim();
+
+    let url = `/user-stats?db=${dbIndex}&type=bucket`;
+    if (bid) {
+        url += `&bid=${encodeURIComponent(bid)}`;
+    }
+    if (bname) {
+        url += `&bname=${encodeURIComponent(bname)}`;
+    }
+
+    fetch(url, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(html => {
+        console.log('Received Bucket HTML:', html);
+        const contentDiv = document.getElementById('bucket-stats-content');
+        contentDiv.innerHTML = html;
+        btn.disabled = false;
+        btn.textContent = 'Search Bucket';
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        btn.disabled = false;
+        btn.textContent = 'Search Bucket';
+        document.getElementById('bucket-stats-content').innerHTML =
             `<p class="error">Error loading data: ${err.message}</p>`;
     });
 }

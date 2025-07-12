@@ -1,0 +1,32 @@
+{{if .Users}}
+    <table>
+        <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Username</th>
+                <th>Bucket ID</th>
+                <th>Bucket Name</th>
+                <th>Partition</th>
+                <th>Files</th>
+                <th>Size (KB)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Users}}
+            {{range .Partitions}}
+            <tr>
+                <td>{{.UserID}}</td>
+                <td>{{.Username}}</td>
+                <td><a href="/files?bucket={{.BID}}&user={{.UserID}}&part={{.Part}}">{{.BID}}</a></td>
+                <td>{{.BName}}</td>
+                <td>{{.Part}}</td>
+                <td>{{.Count}}</td>
+                <td>{{.Size}}</td>
+            </tr>
+            {{end}}
+            {{end}}
+        </tbody>
+    </table>
+{{else}}
+    <p>No bucket data available for the given filters.</p>
+{{end}}

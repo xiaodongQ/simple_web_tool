@@ -13,6 +13,13 @@
       "user": "test",
       "password": "test",
       "dbname": "tmpdb2"
+    },
+    {
+      "host": "aaa",
+      "port": "df",
+      "user": "dfd",
+      "password": "dfd",
+      "dbname": "fdf"
     }
   ],
   "default_db_index": 0

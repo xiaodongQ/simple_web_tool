@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -19,7 +21,12 @@ var (
 )
 
 func main() {
+	// 日志打印行号
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	// 支持自定义监听端口
+	port := flag.String("port", "8888", "server listen port")
+	flag.Parse()
+
 	err := loadConfig()
 	if err != nil {
 		log.Fatal(err)
@@ -40,8 +47,8 @@ func main() {
 	http.HandleFunc("/user-stats", userStatsHandler)
 	http.HandleFunc("/files", filesHandler)
 
-	log.Println("Server running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Printf("Starting server on port %s", *port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", *port), nil))
 }
 
 func configHandler(w http.ResponseWriter, r *http.Request) {
@@ -121,8 +128,6 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Handling user stats request")
 
 	dbIndexStr := r.URL.Query().Get("db")
-	var users []UserStats
-	var selectedConfig Config
 	var selectedIndex int = -1 // Use an int to track the actual index
 
 	// Determine the effective database index
@@ -146,71 +151,118 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If a valid configuration is selected (or defaulted to)
-	if selectedIndex != -1 {
-		selectedConfig = appConfig.Configs[selectedIndex]
-
-		log.Printf("using db: %d, host: %s\n", selectedIndex, selectedConfig.Host)
-		db, ok := dbConnections[selectedIndex]
-		if !ok || db == nil {
-			http.Error(w, "Database connection not found or invalid.", http.StatusInternalServerError)
-			return
-		}
-
-		var err error
-		users, err = getUserStats(db)
-		if err != nil {
-			http.Error(w, "Failed to get user stats: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	log.Printf("users: %v\n", users)
-	tmpl, err := template.ParseFS(templates, "templates/base.html", "templates/user_stats.html", "templates/user_stats_content.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if selectedIndex == -1 {
+		http.Error(w, "No database selected or configured.", http.StatusBadRequest)
 		return
 	}
 
-	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-		tmpl, err := template.ParseFS(templates, "templates/user_stats_content.html")
+	selectedConfig := appConfig.Configs[selectedIndex]
+
+	log.Printf("using db: %d, host: %s\n", selectedIndex, selectedConfig.Host)
+	db, ok := dbConnections[selectedIndex]
+	if !ok || db == nil {
+		http.Error(w, "Database connection not found or invalid.", http.StatusInternalServerError)
+		return
+	}
+
+	typeParam := r.URL.Query().Get("type")
+
+	if typeParam == "bucket" {
+		bidFilter := r.URL.Query().Get("bid")
+		bnameFilter := r.URL.Query().Get("bname")
+
+		bucketStats, err := getUserStats(db, bidFilter, bnameFilter)
+		if err != nil {
+			http.Error(w, "Error getting bucket stats: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		data := struct {
+			Users           []UserStats
+			Configs         []Config
+			SelectedDBIndex string
+		}{
+			Users:           bucketStats,
+			Configs:         appConfig.Configs,
+			SelectedDBIndex: dbIndexStr,
+		}
+
+		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+			tmpl, err := template.ParseFS(templates, "templates/bucket_stats_content.html")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			tmpl.Execute(w, data)
+			return
+		}
+
+		tmpl, err := template.ParseFS(templates, "templates/base.html", "templates/user_stats.html", "templates/bucket_stats_content.html")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		tmpl.Execute(w, map[string]interface{}{
-			"Users":           users,
-			"Configs":         appConfig.Configs,
-			"SelectedDBIndex": dbIndexStr,
-		})
-		return
-	}
+		if err := tmpl.Execute(w, data); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Default behavior for general user stats
+		userStats, err := getUserStats(db, "", "") // Pass empty filters for general user stats
+		if err != nil {
+			http.Error(w, "Error getting user stats: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	if err := tmpl.Execute(w, map[string]interface{}{
-		"Users":           users,
-		"Configs":         appConfig.Configs,
-		"SelectedDBIndex": dbIndexStr,
-	}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		data := struct {
+			Users           []UserStats
+			Configs         []Config
+			SelectedDBIndex string
+		}{
+			Users:           userStats,
+			Configs:         appConfig.Configs,
+			SelectedDBIndex: dbIndexStr,
+		}
+
+		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+			tmpl, err := template.ParseFS(templates, "templates/user_stats_content.html")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			tmpl.Execute(w, data)
+			return
+		}
+
+		tmpl, err := template.ParseFS(templates, "templates/base.html", "templates/user_stats.html", "templates/user_stats_content.html")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := tmpl.Execute(w, data); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
 func filesHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Handling files request")
 
-	userID := r.URL.Query().Get("user")
+	userIDStr := r.URL.Query().Get("user")
 	part := r.URL.Query().Get("part")
 	fidStr := r.URL.Query().Get("fid")
 	fname := r.URL.Query().Get("fname")
-	log.Printf("req userID: %s, part: %s, fidStr: %s, fname: %s\n", userID, part, fidStr, fname)
+	bucketIDStr := r.URL.Query().Get("bucket")
+	log.Printf("req userID: %s, part: %s, fidStr: %s, fname: %s, bucketID: %s\n", userIDStr, part, fidStr, fname, bucketIDStr)
 
-	if userID == "" || part == "" {
+	if userIDStr == "" || part == "" {
 		http.Error(w, "Missing required parameters", http.StatusBadRequest)
 		return
 	}
 
 	// Parse parameters
-	uid, err := strconv.ParseUint(userID, 10, 64)
+	uid, err := strconv.ParseUint(userIDStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
@@ -219,6 +271,15 @@ func filesHandler(w http.ResponseWriter, r *http.Request) {
 	var fid uint64
 	if fidStr != "" {
 		fid, err = strconv.ParseUint(fidStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid file ID", http.StatusBadRequest)
+			return
+		}
+	}
+
+	var bucketID uint64
+	if bucketIDStr != "" {
+		bucketID, err = strconv.ParseUint(bucketIDStr, 10, 64)
 		if err != nil {
 			http.Error(w, "Invalid bucket ID", http.StatusBadRequest)
 			return
@@ -255,7 +316,7 @@ func filesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query files
-	files, err := getFiles(db, uid, part, fid, fname)
+	files, err := getFiles(db, uid, part, fid, fname, bucketID) // Modified: added bucketID
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -274,11 +335,12 @@ func filesHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := tmpl.ExecuteTemplate(w, "content", map[string]interface{}{
-			"Files":   files,
-			"UserID":  uid,
-			"Part":    part,
-			"FID":     fidStr,
-			"FName":   fname,
+			"Files":    files,
+			"UserID":   uid,
+			"Part":     part,
+			"FID":      fidStr,
+			"FName":    fname,
+			"BucketID": bucketID,
 		}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -286,12 +348,13 @@ func filesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := tmpl.Execute(w, map[string]interface{}{
-		"Files":   files,
-		"Configs": appConfig.Configs,
-		"UserID":  uid,
-		"Part":    part,
-		"FID":     fidStr,
-		"FName":   fname,
+		"Files":    files,
+		"Configs":  appConfig.Configs,
+		"UserID":   uid,
+		"Part":     part,
+		"FID":      fidStr,
+		"FName":    fname,
+		"BucketID": bucketID,
 	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

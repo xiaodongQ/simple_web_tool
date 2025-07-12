@@ -5,6 +5,7 @@
     <form onsubmit="searchFiles(event)">
         <input type="hidden" name="user" value="{{.UserID}}">
         <input type="hidden" name="part" value="{{.Part}}">
+        <input type="hidden" name="bucket" value="{{.BucketID}}">
         
         <div class="form-group">
             <label>File ID:</label>
@@ -13,7 +14,7 @@
         
         <div class="form-group">
             <label>Filename:</label>
-            <input type="text" name="fname" placeholder="Filter by Filename" value="{{.FName}}">
+            <input type="text" style="width: 200px;" name="fname" placeholder="Filter by Filename (fuzzy match)" value="{{.FName}}">
         </div>
         
         <button type="submit" class="btn">Search</button>
@@ -27,7 +28,7 @@
             <th>File ID</th>
             <th>Filename</th>
             <th>Bucket ID</th>
-            <th>Size</th>
+            <th>Size (KB)</th>
             <th>Status</th>
         </tr>
     </thead>
