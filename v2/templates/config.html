@@ -2,62 +2,193 @@
 <h1>Database Configuration</h1>
 
 <form id="config-form" onsubmit="saveConfig(event)">
-    {{range $i, $config := .Configs}}
-    <div class="config-group">
-        <h3>Database {{$i}}</h3>
+    {{if .Configs}}
+        {{range $i, $config := .Configs}}
+        <div class="config-group">
+            <h3>Database {{$i}}</h3>
+            <div class="form-group">
+                <label>Host:</label>
+                <input type="text" name="host_{{$i}}" value="{{$config.Host}}">
+            </div>
+            <div class="form-group">
+                <label>Port:</label>
+                <input type="text" name="port_{{$i}}" value="{{$config.Port}}">
+            </div>
+            <div class="form-group">
+                <label>Username:</label>
+                <input type="text" name="user_{{$i}}" value="{{$config.User}}">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="text" name="pass_{{$i}}" value="{{$config.Password}}">
+            </div>
+            <div class="form-group">
+                <label>Database:</label>
+                <input type="text" name="dbname_{{$i}}" value="{{$config.DBName}}">
+            </div>
         <div class="form-group">
-            <label>Host:</label>
-            <input type="text" name="host_{{$i}}" value="{{$config.Host}}">
+            <label>Default:</label>
+            <input type="radio" name="default_config" value="{{$i}}" {{if eq $i $.DefaultDBIndex}}checked{{end}}>
         </div>
-        <div class="form-group">
-            <label>Port:</label>
-            <input type="text" name="port_{{$i}}" value="{{$config.Port}}">
-        </div>
-        <div class="form-group">
-            <label>Username:</label>
-            <input type="text" name="user_{{$i}}" value="{{$config.User}}">
-        </div>
-        <div class="form-group">
-            <label>Password:</label>
-            <input type="password" name="pass_{{$i}}" value="{{$config.Password}}">
-        </div>
-        <div class="form-group">
-            <label>Database:</label>
-            <input type="text" name="dbname_{{$i}}" value="{{$config.DBName}}">
-        </div>
+        <button type="button" class="btn delete-btn" onclick="removeConfig(this)">Remove</button>
     </div>
+        {{end}}
+    {{else}}
+        <div class="config-group" id="config-group-0">
+            <h3>Database 0 (Default)</h3>
+            <div class="form-group">
+                <label>Host:</label>
+                <input type="text" name="host_0" value="">
+            </div>
+            <div class="form-group">
+                <label>Port:</label>
+                <input type="text" name="port_0" value="">
+            </div>
+            <div class="form-group">
+                <label>Username:</label>
+                <input type="text" name="user_0" value="">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" name="pass_0" value="">
+            </div>
+            <div class="form-group">
+                <label>Database:</label>
+                <input type="text" name="dbname_0" value="">
+            </div>
+            <div class="form-group">
+                <label>Default:</label>
+                <input type="radio" name="default_config" value="${currentIndex}">
+            </div>
+            <button type="button" class="btn delete-btn" onclick="removeConfig(this)">Remove</button>
+        </div>
     {{end}}
+    <button type="button" class="btn" onclick="addConfig()">Add New Configuration</button>
     <button type="submit" class="btn">Save</button>
 </form>
 
 <script>
+let configCount = {{if .Configs}}{{.Configs | len}}{{else}}1{{end}};
+
+function addConfig() {
+    const form = document.getElementById('config-form');
+    const newConfigGroup = document.createElement('div');
+    newConfigGroup.classList.add('config-group');
+    const currentIndex = configCount; // Use a local variable for the current index
+    newConfigGroup.id = `config-group-${currentIndex}`;
+    newConfigGroup.innerHTML = `
+        <h3>Database ${currentIndex}</h3>
+        <div class="form-group">
+            <label>Host:</label>
+            <input type="text" name="host_${currentIndex}" value="">
+        </div>
+        <div class="form-group">
+            <label>Port:</label>
+            <input type="text" name="port_${currentIndex}" value="">
+        </div>
+        <div class="form-group">
+            <label>Username:</label>
+            <input type="text" name="user_${currentIndex}" value="">
+        </div>
+        <div class="form-group">
+            <label>Password:</label>
+            <input type="password" name="pass_${currentIndex}" value="">
+        </div>
+        <div class="form-group">
+            <label>Database:</label>
+            <input type="text" name="dbname_${currentIndex}" value="">
+        </div>
+        <div class="form-group">
+            <label>Default:</label>
+            <input type="radio" name="default_config" value="${currentIndex}">
+        </div>
+        <button type="button" class="btn delete-btn" onclick="removeConfig(this)">Remove</button>
+    `;
+    form.insertBefore(newConfigGroup, form.querySelector('button[type="submit"]'));
+    configCount++;
+}
+
+function removeConfig(buttonElement) {
+    const configGroup = buttonElement.closest('.config-group');
+    if (configGroup) {
+        configGroup.remove();
+    }
+}
+
 function saveConfig(e) {
     e.preventDefault();
-    const btn = e.target.querySelector('button');
+    const btn = e.target.querySelector('button[type="submit"]');
     btn.disabled = true;
     btn.textContent = 'Saving...';
     
-    const formData = new FormData(document.getElementById('config-form'));
+    const form = document.getElementById('config-form');
+    const configGroups = form.querySelectorAll('.config-group');
     
-    fetch('/config', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+    let configsToSave = [];
+    let defaultDBIndex = -1;
+
+    configGroups.forEach((group, i) => {
+        const host = group.querySelector(`input[name^="host_"]`).value;
+        const port = group.querySelector(`input[name^="port_"]`).value;
+        const user = group.querySelector(`input[name^="user_"]`).value;
+        const pass = group.querySelector(`input[name^="pass_"]`).value;
+        const dbname = group.querySelector(`input[name^="dbname_"]`).value;
+        const isDefault = group.querySelector(`input[name="default_config"]:checked`);
+
+        configsToSave.push({
+            host: host,
+            port: port,
+            user: user,
+            password: pass,
+            dbname: dbname
+        });
+
+        if (isDefault && isDefault.value == i) {
+            defaultDBIndex = i;
         }
-    })
-    .then(response => response.text())
-    .then(text => {
-        alert(text);
+    });
+
+    if (configsToSave.length > 0 && defaultDBIndex === -1) {
+        alert('Please select a default configuration.');
         btn.disabled = false;
         btn.textContent = 'Save';
+        return;
+    }
+
+    const dataToSend = {
+        configs: configsToSave,
+        default_db_index: defaultDBIndex
+    };
+
+    fetch('/config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(dataToSend)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => { throw new Error(text) });
+        }
+        return response.text();
+    })
+    .then(text => {
+        alert('保存成功');
+        btn.disabled = false;
+        btn.textContent = 'Save';
+        localStorage.removeItem('selectedDBIndex'); // Clear saved selection so it defaults to new config
+        window.location.reload(); // Reload to reflect changes including default selection
     })
     .catch(err => {
         console.error('Error:', err);
-        alert('Error saving configuration');
+        alert('保存配置时出错: ' + err.message);
         btn.disabled = false;
         btn.textContent = 'Save';
     });
 }
+
+
 </script>
 {{end}}

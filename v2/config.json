@@ -1,9 +1,19 @@
-[
-  {
-    "host": "192.168.1.150",
-    "port": "3306",
-    "user": "test",
-    "password": "test",
-    "dbname": "testdb"
-  }
-]
+{
+  "configs": [
+    {
+      "host": "192.168.1.150",
+      "port": "3306",
+      "user": "root",
+      "password": "Demo_123!",
+      "dbname": "testdb"
+    },
+    {
+      "host": "192.168.1.150",
+      "port": "3306",
+      "user": "test",
+      "password": "test",
+      "dbname": "tmpdb2"
+    }
+  ],
+  "default_db_index": 0
+}

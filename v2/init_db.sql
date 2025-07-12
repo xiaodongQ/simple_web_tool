@@ -65,6 +65,7 @@ INSERT INTO buckets (bid, bname, user, part) VALUES
 (1000000000000001, 'admin-backup', 1, 'a3'),
 (1000000000000002, 'tester-data', 2, 'f0'),
 (1000000000000003, 'dev-resources', 3, '7b'),
+-- 增加部分空bucket
 (1000000000000004, 'xxxxxxxxxxxx', 1, 'b1'),
 (1000000000000005, 'yyyyyyyyyyyy', 3, 'c2'),
 (1000000000000006, 'zzzzzzzzzzzz', 3, 'd3');

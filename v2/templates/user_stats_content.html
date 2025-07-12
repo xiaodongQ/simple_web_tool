@@ -1,0 +1,30 @@
+{{if .Users}}
+    <table>
+        <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Username</th>
+                <th>Total Files</th>
+                <th>Total Size</th>
+                <th>Partitions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Users}}
+            <tr>
+                <td>{{.ID}}</td>
+                <td>{{.Username}}</td>
+                <td>{{.TotalFiles}}</td>
+                <td>{{.TotalSize}}</td>
+                <td>
+                    {{range .Partitions}}
+                    <a href="/files?user={{.UserID}}&part={{.Part}}">{{.Part}} ({{.Count}} files, {{.Size}})</a><br>
+                    {{end}}
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p>No user data available. Please select a database connection.</p>
+    {{end}}

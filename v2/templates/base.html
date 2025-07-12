@@ -63,7 +63,11 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <nav class="main-nav">
+        <a href="/" class="nav-link active">用户统计</a>
+        <a href="/config" class="nav-link">数据库配置</a>
+    </nav>
+    <div class="container" id="content">
         {{template "content" .}}
     </div>
 </body>

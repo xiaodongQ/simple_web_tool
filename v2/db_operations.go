@@ -16,9 +16,10 @@ type UserStats struct {
 }
 
 type PartitionStats struct {
-	Part  string
-	Count uint64
-	Size  uint64
+	UserID uint
+	Part   string
+	Count  uint64
+	Size   uint64
 }
 
 type FileInfo struct {
@@ -82,6 +83,7 @@ func getUserPartitions(db *sql.DB, userID uint64) ([]PartitionStats, error) {
 		if err != nil {
 			return nil, err
 		}
+		stats.UserID = uint(userID)
 
 		// 过滤掉没有文件的分区
 		if stats.Count == 0 && stats.Size == 0 {

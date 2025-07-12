@@ -3,45 +3,16 @@
 
 <div class="config-panel">
     <h2>Database Connection</h2>
-    <select id="db-select">
+    <select id="db-select" disabled>
         {{range $i, $config := .Configs}}
-        <option value="{{$i}}">{{$config.Host}}:{{$config.Port}} - {{$config.DBName}}</option>
+        <option value="{{$i}}" {{if eq (printf "%d" $i) $.SelectedDBIndex}}selected{{end}}>{{$config.Host}}:{{$config.Port}} - {{$config.User}} - {{$config.DBName}}</option>
         {{end}}
     </select>
-    <button class="btn" onclick="loadUserStats()">Load</button>
+    <button class="btn" onclick="loadUserStats()" id="load-btn">Load</button>
 </div>
 
-<div id="user-stats">
-    {{if .Users}}
-    <table>
-        <thead>
-            <tr>
-                <th>User ID</th>
-                <th>Username</th>
-                <th>Total Files</th>
-                <th>Total Size</th>
-                <th>Partitions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Users}}
-            <tr>
-                <td>{{.ID}}</td>
-                <td>{{.Username}}</td>
-                <td>{{.TotalFiles}}</td>
-                <td>{{.TotalSize}}</td>
-                <td>
-                    {{range .Partitions}}
-                    <a href="/files?user={{$.ID}}&part={{.Part}}">{{.Part}} ({{.Count}} files, {{.Size}})</a><br>
-                    {{end}}
-                </td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <p>No user data available. Please select a database connection.</p>
-    {{end}}
+<div id="user-stats-content">
+    {{template "user_stats_content.html" .}}
 </div>
 
 <script>
@@ -50,19 +21,47 @@ function loadUserStats() {
     btn.disabled = true;
     btn.textContent = 'Loading...';
     
-    const dbIndex = document.getElementById('db-select').value;
-    fetch(`/user-stats?db=${dbIndex}`)
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('user-stats').innerHTML = html;
-            btn.disabled = false;
-            btn.textContent = 'Load';
-        })
-        .catch(err => {
-            console.error('Error:', err);
-            btn.disabled = false;
-            btn.textContent = 'Load';
-        });
+    const dbSelect = document.getElementById('db-select');
+    const dbIndex = dbSelect.value;
+
+    // Save selected DB index to localStorage
+    localStorage.setItem('selectedDBIndex', dbIndex);
+    
+    fetch(`/user-stats?db=${dbIndex}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(html => {
+        console.log('Received HTML:', html);
+        const contentDiv = document.getElementById('user-stats-content');
+        contentDiv.innerHTML = html;
+        btn.disabled = false;
+        btn.textContent = 'Load';
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        btn.disabled = false;
+        btn.textContent = 'Load';
+        document.getElementById('user-stats-content').innerHTML = 
+            `<p class="error">Error loading data: ${err.message}</p>`;
+    });
 }
+
+// Initial load
+window.onload = function() {
+    const dbSelect = document.getElementById('db-select');
+    const savedDBIndex = localStorage.getItem('selectedDBIndex');
+    if (savedDBIndex !== null) {
+        dbSelect.value = savedDBIndex;
+    }
+    loadUserStats();
+};
 </script>
 {{end}}
