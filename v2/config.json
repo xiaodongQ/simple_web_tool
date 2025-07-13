@@ -3,24 +3,17 @@
     {
       "host": "192.168.1.150",
       "port": "3306",
-      "user": "root",
-      "password": "Demo_123!",
+      "user": "test",
+      "password": "test",
       "dbname": "testdb"
     },
     {
       "host": "192.168.1.150",
       "port": "3306",
-      "user": "test",
-      "password": "test",
+      "user": "root",
+      "password": "Demo_123!",
       "dbname": "tmpdb2"
-    },
-    {
-      "host": "aaa",
-      "port": "df",
-      "user": "dfd",
-      "password": "dfd",
-      "dbname": "fdf"
     }
   ],
-  "default_db_index": 0
+  "default_db_index": 1
 }

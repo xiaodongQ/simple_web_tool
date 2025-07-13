@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1>Files in Partition {{.Part}}</h1>
+<h1>UserID {{.UserID}}, Files in Partition {{.Part}}</h1>
 
 <div class="search-panel">
     <form onsubmit="searchFiles(event)">
@@ -15,6 +15,11 @@
         <div class="form-group">
             <label>Filename:</label>
             <input type="text" style="width: 200px;" name="fname" placeholder="Filter by Filename (fuzzy match)" value="{{.FName}}">
+        </div>
+
+        <!-- 提示默认limit数量 -->
+        <div class="form-group">
+            <label for="limit" style="display: inline-block; width: 150px; color: #777;">Limit Records: 20</label>
         </div>
         
         <button type="submit" class="btn">Search</button>
@@ -46,6 +51,10 @@
 </table>
 {{else}}
 <p>No files found in this partition.</p>
+{{end}}
+
+{{if .ElapsedTime}}
+<div class="elapsed-time-display">Load Time: {{.ElapsedTime}}</div>
 {{end}}
 
 <script>

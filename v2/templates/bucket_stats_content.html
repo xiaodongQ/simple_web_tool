@@ -30,3 +30,7 @@
 {{else}}
     <p>No bucket data available for the given filters.</p>
 {{end}}
+
+{{if .ElapsedTime}}
+<div class="elapsed-time-display">Load Time: {{.ElapsedTime}}</div>
+{{end}}

@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 //go:embed templates/*
@@ -42,7 +43,9 @@ func main() {
 		dbConnections[appConfig.DefaultDBIndex] = db
 	}
 
-	http.HandleFunc("/", userStatsHandler) // 修改根路由
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/user-stats", http.StatusFound)
+	}) // 根路由重定向到 /user-stats
 	http.HandleFunc("/config", configHandler)
 	http.HandleFunc("/user-stats", userStatsHandler)
 	http.HandleFunc("/files", filesHandler)
@@ -52,7 +55,8 @@ func main() {
 }
 
 func configHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Handling config request, method:", r.Method)
+	log.Println("Handling config request, clientip:", r.RemoteAddr, " method:", r.Method)
+	startTime := time.Now()
 	switch r.Method {
 	case http.MethodGet:
 		tmpl, err := template.ParseFS(templates, "templates/base.html", "templates/config.html")
@@ -122,10 +126,12 @@ func configHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	log.Printf("configHandler completed in %v", time.Since(startTime))
 }
 
 func userStatsHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Handling user stats request")
+	startTime := time.Now()
+	log.Println("Handling user stats request, clientip:", r.RemoteAddr, " method:", r.Method)
 
 	dbIndexStr := r.URL.Query().Get("db")
 	var selectedIndex int = -1 // Use an int to track the actual index
@@ -156,9 +162,6 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	selectedConfig := appConfig.Configs[selectedIndex]
-
-	log.Printf("using db: %d, host: %s\n", selectedIndex, selectedConfig.Host)
 	db, ok := dbConnections[selectedIndex]
 	if !ok || db == nil {
 		http.Error(w, "Database connection not found or invalid.", http.StatusInternalServerError)
@@ -166,12 +169,22 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	typeParam := r.URL.Query().Get("type")
-
+	log.Printf("typeParam: %s", typeParam)
 	if typeParam == "bucket" {
 		bidFilter := r.URL.Query().Get("bid")
 		bnameFilter := r.URL.Query().Get("bname")
+		usernameFilter := r.URL.Query().Get("username")
+		// 处理 limit 参数
+		limitStr := r.URL.Query().Get("limit")
+		limit := 0
+		if limitStr != "" {
+			l, err := strconv.Atoi(limitStr)
+			if err == nil {
+				limit = l
+			}
+		}
 
-		bucketStats, err := getUserStats(db, bidFilter, bnameFilter)
+		bucketStats, err := getUserStats(db, bidFilter, bnameFilter, usernameFilter, limit)
 		if err != nil {
 			http.Error(w, "Error getting bucket stats: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -181,10 +194,12 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 			Users           []UserStats
 			Configs         []Config
 			SelectedDBIndex string
+			ElapsedTime     string
 		}{
 			Users:           bucketStats,
 			Configs:         appConfig.Configs,
 			SelectedDBIndex: dbIndexStr,
+			ElapsedTime:     time.Since(startTime).String(),
 		}
 
 		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
@@ -194,6 +209,8 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			tmpl.Execute(w, data)
+
+			log.Printf("userStatsHandler completed in %v", time.Since(startTime))
 			return
 		}
 
@@ -202,13 +219,15 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		data.ElapsedTime = time.Since(startTime).String()
 		if err := tmpl.Execute(w, data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// Default behavior for general user stats
-		userStats, err := getUserStats(db, "", "") // Pass empty filters for general user stats
+		userStats, err := getUserStats(db, "", "", "", 0) // Pass empty filters for general user stats
 		if err != nil {
 			http.Error(w, "Error getting user stats: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -218,12 +237,15 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 			Users           []UserStats
 			Configs         []Config
 			SelectedDBIndex string
+			ElapsedTime     string
 		}{
 			Users:           userStats,
 			Configs:         appConfig.Configs,
 			SelectedDBIndex: dbIndexStr,
+			ElapsedTime:     time.Since(startTime).String(),
 		}
 
+		// AJAX 请求，只返回内容部分
 		if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
 			tmpl, err := template.ParseFS(templates, "templates/user_stats_content.html")
 			if err != nil {
@@ -231,6 +253,7 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			tmpl.Execute(w, data)
+			log.Printf("userStatsHandler AJAX completed in %v", time.Since(startTime))
 			return
 		}
 
@@ -239,15 +262,19 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		data.ElapsedTime = time.Since(startTime).String()
 		if err := tmpl.Execute(w, data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
+	log.Printf("userStatsHandler completed in %v", time.Since(startTime))
 }
 
 func filesHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Handling files request")
+	startTime := time.Now()
+	log.Println("Handling files request, clientip:", r.RemoteAddr, " method:", r.Method)
 
 	userIDStr := r.URL.Query().Get("user")
 	part := r.URL.Query().Get("part")
@@ -328,34 +355,41 @@ func filesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 处理指定的文件请求，AJAX 请求，只返回内容部分
 	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
 		tmpl, err := template.ParseFS(templates, "templates/files.html")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		elapsedTime := time.Since(startTime).String()
 		if err := tmpl.ExecuteTemplate(w, "content", map[string]interface{}{
-			"Files":    files,
-			"UserID":   uid,
-			"Part":     part,
-			"FID":      fidStr,
-			"FName":    fname,
-			"BucketID": bucketID,
+			"Files":       files,
+			"UserID":      uid,
+			"Part":        part,
+			"FID":         fidStr,
+			"FName":       fname,
+			"BucketID":    bucketID,
+			"ElapsedTime": elapsedTime,
 		}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+		log.Printf("specific filesHandler AJAX completed in %v", elapsedTime)
 		return
 	}
 
+	elapsedTime := time.Since(startTime).String()
 	if err := tmpl.Execute(w, map[string]interface{}{
-		"Files":    files,
-		"Configs":  appConfig.Configs,
-		"UserID":   uid,
-		"Part":     part,
-		"FID":      fidStr,
-		"FName":    fname,
-		"BucketID": bucketID,
+		"Files":       files,
+		"Configs":     appConfig.Configs,
+		"UserID":      uid,
+		"Part":        part,
+		"FID":         fidStr,
+		"FName":       fname,
+		"BucketID":    bucketID,
+		"ElapsedTime": elapsedTime,
 	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	log.Printf("filesHandler completed in %v", elapsedTime)
 }

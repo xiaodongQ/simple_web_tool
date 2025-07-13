@@ -33,13 +33,25 @@ type FileInfo struct {
 	Status string
 }
 
-func getUserStats(db *sql.DB, bidFilter, bnameFilter string) ([]UserStats, error) {
+// 指定bucket查询时，对应的信息
+type BucketCondition struct {
+	BID   uint64
+	BName string
+	Part  string
+}
+
+func getUserStats(db *sql.DB, bidFilter, bnameFilter, usernameFilter string, limit int) ([]UserStats, error) {
 	var users []UserStats
 
 	if bidFilter != "" || bnameFilter != "" {
 		// Direct query for specific bucket
 		query := "SELECT u.id, u.username, u.status, b.bid, b.bname, b.part FROM users u JOIN buckets b ON u.id = b.user WHERE 1=1"
 		args := []interface{}{}
+
+		if usernameFilter != "" {
+			query += " AND u.username = ?"
+			args = append(args, usernameFilter)
+		}
 
 		if bidFilter != "" {
 			query += " AND b.bid = ?"
@@ -50,6 +62,13 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter string) ([]UserStats, error
 			args = append(args, bnameFilter)
 		}
 
+		// 每个用户只查询limit个分区
+		if limit > 0 {
+			query += " LIMIT ?"
+			args = append(args, limit)
+		}
+
+		log.Printf("Executing query: %s with args: %v", query, args)
 		rows, err := db.Query(query, args...)
 		if err != nil {
 			return nil, err
@@ -58,13 +77,12 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter string) ([]UserStats, error
 
 		for rows.Next() {
 			var user UserStats
-			var bid uint64
-			var bname, part string
-			if err := rows.Scan(&user.ID, &user.Username, &user.Status, &bid, &bname, &part); err != nil {
+			var bucketCond BucketCondition
+			if err := rows.Scan(&user.ID, &user.Username, &user.Status, &bucketCond.BID, &bucketCond.BName, &bucketCond.Part); err != nil {
 				return nil, err
 			}
 
-			partitions, err := getUserPartitions(db, bid, part, user.ID)
+			partitions, err := getUserPartitions(db, bucketCond, user.ID, user.Username, limit)
 			if err != nil {
 				return nil, err
 			}
@@ -80,7 +98,15 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter string) ([]UserStats, error
 		}
 	} else {
 		// Original logic for all users
-		rows, err := db.Query("SELECT id, username, status FROM users")
+		query := "SELECT id, username, status FROM users WHERE 1=1"
+		args := []interface{}{}
+		if usernameFilter != "" {
+			query += " AND username = ?"
+			args = append(args, usernameFilter)
+		}
+
+		log.Printf("Executing query: %s with args: %v", query, args)
+		rows, err := db.Query(query, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +118,8 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter string) ([]UserStats, error
 				return nil, err
 			}
 
-			partitions, err := getUserPartitions(db, 0, "", user.ID)
+			// 每个用户都查询limit个分区
+			partitions, err := getUserPartitions(db, BucketCondition{}, user.ID, user.Username, limit)
 			if err != nil {
 				return nil, err
 			}
@@ -110,47 +137,63 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter string) ([]UserStats, error
 	return users, nil
 }
 
-func getUserPartitions(db *sql.DB, bid uint64, part string, userID uint64) ([]PartitionStats, error) {
+func getUserPartitions(db *sql.DB, bucketCond BucketCondition, userID uint64, username string, limit int) ([]PartitionStats, error) {
 	var partitions []PartitionStats
 
-	if bid > 0 && part != "" {
+	if bucketCond.BID > 0 && bucketCond.Part != "" {
 		// Get single partition stats for specific bucket
-		stats, err := getPartitionStats(db, userID, part)
+		stats, err := getPartitionStats(db, bucketCond.BID, bucketCond.Part)
 		if err != nil {
 			return nil, err
 		}
 
-		// Get bucket info
-		row := db.QueryRow("SELECT b.bid, b.bname, u.username FROM buckets b JOIN users u ON b.user = u.id WHERE b.bid = ?", bid)
+		// 组装信息
 		var partition PartitionStats
-		if err := row.Scan(&partition.BID, &partition.BName, &partition.Username); err != nil {
-			return nil, err
-		}
-
-		partition.Part = part
 		partition.Count = stats.Count
 		partition.Size = stats.Size
+		// 其他信息直接填充
+		partition.BID = bucketCond.BID
+		partition.BName = bucketCond.BName
+		partition.Part = bucketCond.Part
 		partition.UserID = userID
+		partition.Username = username
 		partitions = append(partitions, partition)
 	} else {
-		// Get all partitions for user
-		rows, err := db.Query("SELECT part FROM buckets WHERE user = ? GROUP BY part", userID)
+		// 获取该用户下有bucket的分区
+		query := "SELECT part FROM buckets WHERE user = ? GROUP BY part"
+		args := []interface{}{userID}
+		if limit > 0 {
+			query += " LIMIT ?"
+			args = append(args, limit)
+		}
+
+		log.Printf("Executing partition query: %s with args: %v", query, args)
+		rows, err := db.Query(query, args...)
 		if err != nil {
 			return nil, err
 		}
 		defer rows.Close()
 
+		// 用户在存在bucket的各分区的文件统计
 		for rows.Next() {
 			var part string
 			if err := rows.Scan(&part); err != nil {
 				return nil, err
 			}
 
+			// 统计该分区下的文件数量和大小
 			stats, err := getPartitionStats(db, userID, part)
 			if err != nil {
 				return nil, err
 			}
 
+			if stats.Count == 0 {
+				// TODO 暂时注释
+				// 该分区下没有文件，跳过
+				continue
+			}
+
+			// 属于该用户和该分区下的bucket统计信息
 			// Get bucket info for this partition
 			bucketRows, err := db.Query("SELECT b.bid, b.bname, u.username FROM buckets b JOIN users u ON b.user = u.id WHERE b.user = ? AND b.part = ?", userID, part)
 			if err != nil {
@@ -168,6 +211,7 @@ func getUserPartitions(db *sql.DB, bid uint64, part string, userID uint64) ([]Pa
 				partition.Count = stats.Count
 				partition.Size = stats.Size
 				partition.UserID = userID
+				partition.Username = username
 				partitions = append(partitions, partition)
 			}
 		}
@@ -176,6 +220,7 @@ func getUserPartitions(db *sql.DB, bid uint64, part string, userID uint64) ([]Pa
 	return partitions, nil
 }
 
+// 用户在指定分区的文件统计
 func getPartitionStats(db *sql.DB, userID uint64, part string) (*PartitionStats, error) {
 	// Query file count and total size for this partition
 	query := fmt.Sprintf(
@@ -184,6 +229,7 @@ func getPartitionStats(db *sql.DB, userID uint64, part string) (*PartitionStats,
 
 	var stats PartitionStats
 	stats.Part = part
+	stats.UserID = userID
 
 	row := db.QueryRow(query, userID, part)
 	if err := row.Scan(&stats.Count, &stats.Size); err != nil {
@@ -224,7 +270,7 @@ func getFiles(db *sql.DB, userID uint64, part string, fid uint64, fname string, 
 		args = append(args, bucketID)
 	}
 
-	query += " LIMIT 10"
+	query += " LIMIT 20"
 	log.Printf("Query: %s, Args: %v", query, args)
 
 	rows, err := db.Query(query, args...)

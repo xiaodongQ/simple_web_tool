@@ -25,6 +25,15 @@
         <label for="search-bname-input">Bucket Name:</label>
         <input type="text" style="width: 200px;" id="search-bname-input" placeholder="Enter Bucket Name (exact match)">
     </div>
+    <div class="form-group">
+        <label for="search-username-input">Username:</label>
+        <input type="text" id="search-username-input" placeholder="Enter Username">
+    </div>
+    <!-- 提示默认limit数量 -->
+    <div class="form-group">
+        <label for="search-limit-input">Limit Records (Per User):</label>
+        <input type="number" id="search-limit-input" value="20" min="1" style="width: 60px;">
+    </div>
     <button class="btn" onclick="loadBucketStats()" id="search-bucket-btn">Search Bucket</button>
 </div>
 
@@ -78,6 +87,8 @@ function loadBucketStats() {
     const dbIndex = dbSelect.value;
     const bid = document.getElementById('search-bid-input').value.trim();
     const bname = document.getElementById('search-bname-input').value.trim();
+    const username = document.getElementById('search-username-input').value.trim();
+    const limit = document.getElementById('search-limit-input').value.trim();
 
     let url = `/user-stats?db=${dbIndex}&type=bucket`;
     if (bid) {
@@ -85,6 +96,12 @@ function loadBucketStats() {
     }
     if (bname) {
         url += `&bname=${encodeURIComponent(bname)}`;
+    }
+    if (username) {
+        url += `&username=${encodeURIComponent(username)}`;
+    }
+    if (limit) {
+        url += `&limit=${encodeURIComponent(limit)}`;
     }
 
     fetch(url, {

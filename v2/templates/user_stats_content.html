@@ -25,6 +25,10 @@
             {{end}}
         </tbody>
     </table>
-    {{else}}
+{{else}}
     <p>No user data available. Please select a database connection.</p>
-    {{end}}
+{{end}}
+
+{{if .ElapsedTime}}
+    <div class="user-stats-elapsed-time-display">Load Time: {{.ElapsedTime}}</div>
+{{end}}

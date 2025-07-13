@@ -50,7 +50,7 @@
             </div>
             <div class="form-group">
                 <label>Password:</label>
-                <input type="password" name="pass_0" value="">
+                <input type="text" name="pass_0" value="">
             </div>
             <div class="form-group">
                 <label>Database:</label>
@@ -58,7 +58,7 @@
             </div>
             <div class="form-group">
                 <label>Default:</label>
-                <input type="radio" name="default_config" value="${currentIndex}">
+                <input type="radio" name="default_config" value="0" checked>
             </div>
             <button type="button" class="btn delete-btn" onclick="removeConfig(this)">Remove</button>
         </div>
@@ -92,7 +92,7 @@ function addConfig() {
         </div>
         <div class="form-group">
             <label>Password:</label>
-            <input type="password" name="pass_${currentIndex}" value="">
+            <input type="text" name="pass_${currentIndex}" value="">
         </div>
         <div class="form-group">
             <label>Database:</label>
@@ -179,7 +179,7 @@ function saveConfig(e) {
         btn.disabled = false;
         btn.textContent = 'Save';
         localStorage.removeItem('selectedDBIndex'); // Clear saved selection so it defaults to new config
-        window.location.reload(); // Reload to reflect changes including default selection
+        window.location.href = '/config'; // Redirect to config page to reflect changes without triggering user stats
     })
     .catch(err => {
         console.error('Error:', err);
