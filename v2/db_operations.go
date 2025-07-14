@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sync"
 )
 
 type UserStats struct {
@@ -75,6 +76,13 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter, usernameFilter string, lim
 		}
 		defer rows.Close()
 
+		var (
+			mu sync.Mutex
+			wg sync.WaitGroup
+		)
+
+		userChan := make(chan UserStats, 100) // Buffered channel to send users
+
 		for rows.Next() {
 			var user UserStats
 			var bucketCond BucketCondition
@@ -82,19 +90,32 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter, usernameFilter string, lim
 				return nil, err
 			}
 
-			partitions, err := getUserPartitions(db, bucketCond, user.ID, user.Username, limit)
-			if err != nil {
-				return nil, err
-			}
+			wg.Add(1)
+			go func(u UserStats, bc BucketCondition) {
+				defer wg.Done()
+				partitions, err := getUserPartitions(db, bc, u.ID, u.Username, limit)
+				if err != nil {
+					log.Printf("Error getting partitions for user %s: %v", u.Username, err)
+					return
+				}
 
-			user.Partitions = partitions
-			for _, p := range partitions {
-				user.TotalFiles += p.Count
-				user.TotalSize += p.Size
-			}
+				u.Partitions = partitions
+				for _, p := range partitions {
+					u.TotalFiles += p.Count
+					u.TotalSize += p.Size
+				}
+				u.TotalSize = u.TotalSize / 1024.0
+				userChan <- u
+			}(user, bucketCond)
+		}
 
-			user.TotalSize = user.TotalSize / 1024.0
-			users = append(users, user)
+		wg.Wait()
+		close(userChan)
+
+		for u := range userChan {
+			mu.Lock()
+			users = append(users, u)
+			mu.Unlock()
 		}
 	} else {
 		// Original logic for all users
@@ -112,25 +133,42 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter, usernameFilter string, lim
 		}
 		defer rows.Close()
 
+		var ( 
+			mu sync.Mutex
+			wg sync.WaitGroup
+		)
+
+		userChan := make(chan UserStats, 100) // Buffered channel to send users
+
 		for rows.Next() {
 			var user UserStats
 			if err := rows.Scan(&user.ID, &user.Username, &user.Status); err != nil {
 				return nil, err
 			}
+			wg.Add(1)
+			go func(u UserStats) {
+				defer wg.Done()
+				partitions, err := getUserPartitions(db, BucketCondition{}, u.ID, u.Username, limit)
+				if err != nil {
+					log.Printf("Error getting partitions for user %s: %v", u.Username, err)
+					return
+				}
+				u.Partitions = partitions
+				for _, p := range partitions {
+					u.TotalFiles += p.Count
+					u.TotalSize += p.Size
+				}
+				userChan <- u
+			}(user)
+		}
 
-			// 每个用户都查询limit个分区
-			partitions, err := getUserPartitions(db, BucketCondition{}, user.ID, user.Username, limit)
-			if err != nil {
-				return nil, err
-			}
+		wg.Wait()
+		close(userChan)
 
-			user.Partitions = partitions
-			for _, p := range partitions {
-				user.TotalFiles += p.Count
-				user.TotalSize += p.Size
-			}
-
-			users = append(users, user)
+		for u := range userChan {
+			mu.Lock()
+			users = append(users, u)
+			mu.Unlock()
 		}
 	}
 
@@ -174,46 +212,63 @@ func getUserPartitions(db *sql.DB, bucketCond BucketCondition, userID uint64, us
 		}
 		defer rows.Close()
 
-		// 用户在存在bucket的各分区的文件统计
+		var (
+			mu sync.Mutex
+			wg sync.WaitGroup
+		)
+
+		partitionChan := make(chan PartitionStats, 100) // Buffered channel to send partitions
+
+		parts := []string{}
 		for rows.Next() {
 			var part string
 			if err := rows.Scan(&part); err != nil {
 				return nil, err
 			}
+			parts = append(parts, part)
+		}
 
-			// 统计该分区下的文件数量和大小
-			stats, err := getPartitionStats(db, userID, part)
-			if err != nil {
-				return nil, err
-			}
+		for _, part := range parts {
+			wg.Add(1)
+			go func(p string) {
+				defer wg.Done()
 
-			if stats.Count == 0 {
-				// TODO 暂时注释
-				// 该分区下没有文件，跳过
-				continue
-			}
-
-			// 属于该用户和该分区下的bucket统计信息
-			// Get bucket info for this partition
-			bucketRows, err := db.Query("SELECT b.bid, b.bname, u.username FROM buckets b JOIN users u ON b.user = u.id WHERE b.user = ? AND b.part = ?", userID, part)
-			if err != nil {
-				return nil, err
-			}
-			defer bucketRows.Close()
-
-			for bucketRows.Next() {
-				var partition PartitionStats
-				if err := bucketRows.Scan(&partition.BID, &partition.BName, &partition.Username); err != nil {
-					return nil, err
+				stats, err := getPartitionStats(db, userID, p)
+				if err != nil {
+					log.Printf("Error getting partition stats for user %d, part %s: %v", userID, p, err)
+					return
 				}
 
-				partition.Part = part
-				partition.Count = stats.Count
-				partition.Size = stats.Size
-				partition.UserID = userID
-				partition.Username = username
-				partitions = append(partitions, partition)
-			}
+				if stats.Count == 0 {
+					return
+				}
+
+				var bid uint64
+				var bname string
+				err = db.QueryRow("SELECT bid, bname FROM buckets WHERE user = ? AND part = ? LIMIT 1", userID, p).Scan(&bid, &bname)
+				if err != nil && err != sql.ErrNoRows {
+					log.Printf("Error getting bucket info for user %d, part %s: %v", userID, p, err)
+				}
+
+				partitionChan <- PartitionStats{
+					Count:    stats.Count,
+					Size:     stats.Size,
+					UserID:   userID,
+					Username: username,
+					Part:     p,
+					BID:      bid,
+					BName:    bname,
+				}
+			}(part)
+		}
+
+		wg.Wait()
+		close(partitionChan)
+
+		for p := range partitionChan {
+			mu.Lock()
+			partitions = append(partitions, p)
+			mu.Unlock()
 		}
 	}
 
