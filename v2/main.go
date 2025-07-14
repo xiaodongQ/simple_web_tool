@@ -44,7 +44,7 @@ func main() {
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/user-stats", http.StatusFound)
+		http.Redirect(w, r, "/config", http.StatusFound)
 	}) // 根路由重定向到 /user-stats
 	http.HandleFunc("/config", configHandler)
 	http.HandleFunc("/user-stats", userStatsHandler)
