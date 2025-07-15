@@ -1,34 +1,67 @@
-{{if .Users}}
-    <table>
-        <thead>
-            <tr>
-                <th>User ID</th>
-                <th>Username</th>
-                <th>Total Files</th>
-                <th>Total Size (KB)</th>
-                <th>Partitions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Users}}
-            <tr>
-                <td>{{.ID}}</td>
-                <td>{{.Username}}</td>
-                <td>{{.TotalFiles}}</td>
-                <td>{{.TotalSize}}</td>
-                <td>
+<div class="container">
+    {{if .Users}}
+        {{range .Users}}
+        <div class="user-row">
+            <div class="user-summary" onclick="togglePartitions(this)">
+                <div class="user-id">ID: {{.ID}}</div>
+                <div class="username">
+                    {{.Username}}
+                </div>
+                <div class="user-stat user-files">
+                    <div class="stat-value">{{.TotalFiles}}</div>
+                    <div class="stat-label">Files</div>
+                </div>
+                <div class="user-stat user-size">
+                    <div class="stat-value">{{.TotalSize}} KB</div>
+                    <div class="stat-label">Size</div>
+                </div>
+                <button class="toggle-btn">
+                    <i>▼</i> Partitions
+                </button>
+            </div>
+            
+            <div class="partitions-container">
+                <div class="partitions-grid">
                     {{range .Partitions}}
-                    <a href="/files?user={{.UserID}}&part={{.Part}}">{{.Part}} ({{.Count}} files, {{.Size}})</a><br>
+                    <div class="partition-item">
+                        <a class="partition-link" href="/files?user={{.UserID}}&part={{.Part}}">
+                            <div class="partition-id">{{.Part}}</div>
+                            <div class="partition-stats">
+                                <div class="stat-row">{{.Count}} files</div>
+                                <div class="stat-row">{{.Size}} KB</div>
+                            </div>
+                        </a>
+                    </div>
                     {{end}}
-                </td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-{{else}}
-    <p>No user data available. Please select a database connection.</p>
-{{end}}
+                </div>
+            </div>
+        </div>
+        {{end}}
+    {{else}}
+        <div class="no-data">
+            <p>No user data available. Please select a database connection.</p>
+        </div>
+    {{end}}
+    
+    {{if .ElapsedTime}}
+        <div class="elapsed-time">Load time: {{.ElapsedTime}}</div>
+    {{end}}
+</div>
 
-{{if .ElapsedTime}}
-    <div class="user-stats-elapsed-time-display">Load Time: {{.ElapsedTime}}</div>
-{{end}}
+<script>
+    function togglePartitions(element) {
+        const container = element.nextElementSibling;
+        const btn = element.querySelector('.toggle-btn');
+        const icon = btn.querySelector('i');
+        
+        if (container.style.display === 'block') {
+            container.style.display = 'none';
+            icon.textContent = '▼';
+            btn.innerHTML = '<i>▼</i> Partitions';
+        } else {
+            container.style.display = 'block';
+            icon.textContent = '▲';
+            btn.innerHTML = '<i>▲</i> Hide';
+        }
+    }
+</script>

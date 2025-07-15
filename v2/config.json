@@ -15,5 +15,5 @@
       "dbname": "tmpdb2"
     }
   ],
-  "default_db_index": 1
+  "default_db_index": 0
 }

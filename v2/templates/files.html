@@ -1,7 +1,7 @@
 {{define "content"}}
 <h1>UserID {{.UserID}}, Files in Partition {{.Part}}</h1>
 
-<div class="search-panel">
+<div class="config-panel">
     <form onsubmit="searchFiles(event)">
         <input type="hidden" name="user" value="{{.UserID}}">
         <input type="hidden" name="part" value="{{.Part}}">
@@ -14,7 +14,7 @@
         
         <div class="form-group">
             <label>Filename:</label>
-            <input type="text" style="width: 200px;" name="fname" placeholder="Filter by Filename (fuzzy match)" value="{{.FName}}">
+            <input type="text" style="width: 400px;" name="fname" placeholder="Filter by Filename (fuzzy match)" value="{{.FName}}">
         </div>
 
         <!-- 提示默认limit数量 -->
@@ -27,30 +27,32 @@
 </div>
 
 {{if .Files}}
-<table>
-    <thead>
-        <tr>
-            <th>File ID</th>
-            <th>Filename</th>
-            <th>Bucket ID</th>
-            <th>Size (KB)</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody>
-        {{range .Files}}
-        <tr>
-            <td>{{.FID}}</td>
-            <td>{{.FName}}</td>
-            <td>{{.BID}}</td>
-            <td>{{.FSize}}</td>
-            <td>{{.Status}}</td>
-        </tr>
-        {{end}}
-    </tbody>
-</table>
+<div class="data-table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>File ID</th>
+                <th>Filename</th>
+                <th>Bucket ID</th>
+                <th>Size (KB)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Files}}
+            <tr>
+                <td>{{.FID}}</td>
+                <td>{{.FName}}</td>
+                <td>{{.BID}}</td>
+                <td>{{.FSize}}</td>
+                <td>{{.Status}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
 {{else}}
-<p>No files found in this partition.</p>
+<p class="no-data-message">No files found in this partition.</p>
 {{end}}
 
 {{if .ElapsedTime}}

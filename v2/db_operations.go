@@ -19,11 +19,13 @@ type UserStats struct {
 type PartitionStats struct {
 	UserID   uint64
 	Username string
-	BID      uint64
-	BName    string
 	Part     string
 	Count    uint64
 	Size     float64
+
+	// TODO: BID和BName应该提到UserStats中作为Slice
+	BID   uint64
+	BName string
 }
 
 type FileInfo struct {
@@ -133,7 +135,7 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter, usernameFilter string, lim
 		}
 		defer rows.Close()
 
-		var ( 
+		var (
 			mu sync.Mutex
 			wg sync.WaitGroup
 		)

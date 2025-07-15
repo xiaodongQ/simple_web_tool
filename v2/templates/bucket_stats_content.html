@@ -1,5 +1,6 @@
 {{if .Users}}
-    <table>
+<div class="data-table-container">
+    <table class="data-table">
         <thead>
             <tr>
                 <th>User ID</th>
@@ -27,8 +28,9 @@
             {{end}}
         </tbody>
     </table>
+</div>
 {{else}}
-    <p>No bucket data available for the given filters.</p>
+    <p class="no-data-message">No bucket data available for the given filters.</p>
 {{end}}
 
 {{if .ElapsedTime}}
