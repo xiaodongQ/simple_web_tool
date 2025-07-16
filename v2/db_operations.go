@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 )
 
@@ -64,6 +65,7 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter, usernameFilter string, lim
 			query += " AND b.bname = ?"
 			args = append(args, bnameFilter)
 		}
+		query += " order by b.created_at desc"
 
 		// 每个用户只查询limit个分区
 		if limit > 0 {
@@ -106,7 +108,7 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter, usernameFilter string, lim
 					u.TotalFiles += p.Count
 					u.TotalSize += p.Size
 				}
-				u.TotalSize = u.TotalSize / 1024.0
+				u.TotalSize = u.TotalSize
 				userChan <- u
 			}(user, bucketCond)
 		}
@@ -172,6 +174,10 @@ func getUserStats(db *sql.DB, bidFilter, bnameFilter, usernameFilter string, lim
 			users = append(users, u)
 			mu.Unlock()
 		}
+
+		sort.Slice(users, func(i, j int) bool {
+			return users[i].TotalSize > users[j].TotalSize
+		})
 	}
 
 	return users, nil
@@ -272,6 +278,9 @@ func getUserPartitions(db *sql.DB, bucketCond BucketCondition, userID uint64, us
 			partitions = append(partitions, p)
 			mu.Unlock()
 		}
+		sort.Slice(partitions, func(i, j int) bool {
+			return partitions[i].Size > partitions[j].Size
+		})
 	}
 
 	return partitions, nil
@@ -300,7 +309,7 @@ func getPartitionStats(db *sql.DB, userID uint64, part string) (*PartitionStats,
 		}
 		return nil, fmt.Errorf("failed to scan partition stats: %w", err)
 	}
-	stats.Size = stats.Size / 1024.0 // Convert bytes to KB
+	stats.Size = stats.Size / 1024.0 / 1024 // Convert bytes to MB
 
 	return &stats, nil
 }
@@ -326,6 +335,7 @@ func getFiles(db *sql.DB, userID uint64, part string, fid uint64, fname string, 
 		query += " AND bid = ?"
 		args = append(args, bucketID)
 	}
+	query += " order by created_at desc"
 
 	query += " LIMIT 20"
 	log.Printf("Query: %s, Args: %v", query, args)
@@ -342,7 +352,7 @@ func getFiles(db *sql.DB, userID uint64, part string, fid uint64, fname string, 
 		if err := rows.Scan(&file.FID, &file.FName, &file.BID, &file.FSize, &file.Status); err != nil {
 			return nil, err
 		}
-		file.FSize = file.FSize / 1024.0 // Convert bytes to KB
+		file.FSize = file.FSize / 1024.0 / 1024 // Convert bytes to MB
 		files = append(files, file)
 	}
 	log.Printf("Files: %v", files)

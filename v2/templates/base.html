@@ -295,98 +295,121 @@
         
         .partitions-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 8px;
-            margin-top: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
         }
 
         .partition-item {
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            padding: 8px 10px;
-            border: 1px solid #e2e8f0;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+            box-shadow: 0 4px 12px rgba(2, 6, 23, 0.3);
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(6px);
         }
 
-        /* 柔和莫兰迪色系背景（替代原高饱和色） */
-        .partition-item:nth-child(6n+1) { 
-            background: rgba(237, 242, 247, 0.9); 
-            border-color: rgba(203, 213, 225, 0.5);
-        }
-        .partition-item:nth-child(6n+2) { 
-            background: rgba(236, 253, 245, 0.9); 
-            border-color: rgba(167, 243, 208, 0.5);
-        }
-        .partition-item:nth-child(6n+3) { 
-            background: rgba(240, 249, 255, 0.9); 
-            border-color: rgba(191, 219, 254, 0.5);
-        }
-        .partition-item:nth-child(6n+4) { 
-            background: rgba(254, 249, 243, 0.9); 
-            border-color: rgba(253, 230, 138, 0.5);
-        }
-        .partition-item:nth-child(6n+5) { 
-            background: rgba(251, 245, 255, 0.9); 
-            border-color: rgba(233, 213, 255, 0.5);
-        }
-        .partition-item:nth-child(6n+6) { 
-            background: rgba(255, 248, 242, 0.9); 
-            border-color: rgba(252, 211, 187, 0.5);
+        /* 渐变透明气泡效果 */
+        .partition-item::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+            opacity: 0.4;
+            z-index: 0;
+            transition: opacity 0.4s ease;
         }
 
-        /* 悬停效果优化（更细腻的阴影变化） */
+        .partition-item:hover::before {
+            opacity: 0.6;
+        }
+
+        /* 个性化气泡颜色 */
+        .partition-item:nth-child(8n+1) { 
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        .partition-item:nth-child(8n+2) { 
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        .partition-item:nth-child(8n+3) { 
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+        .partition-item:nth-child(8n+4) { 
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(236, 72, 153, 0.2);
+        }
+        .partition-item:nth-child(8n+5) { 
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+        .partition-item:nth-child(8n+6) { 
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(14, 165, 233, 0.2);
+        }
+        .partition-item:nth-child(8n+7) { 
+            background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(249, 115, 22, 0.2);
+        }
+        .partition-item:nth-child(8n+8) { 
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        /* 悬停效果（提升、发光） */
         .partition-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
-            border-color: transparent;
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+            z-index: 10;
         }
 
         .partition-link {
             display: block;
             text-decoration: none;
             color: inherit;
+            position: relative;
+            z-index: 2;
         }
 
         .partition-id {
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 6px;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
 
-        /* 与背景协调的文字颜色（更柔和的对比） */
-        .partition-item:nth-child(6n+1) .partition-id { color: #64748b; }
-        .partition-item:nth-child(6n+2) .partition-id { color: #166534; }
-        .partition-item:nth-child(6n+3) .partition-id { color: #1e40af; }
-        .partition-item:nth-child(6n+4) .partition-id { color: #92400e; }
-        .partition-item:nth-child(6n+5) .partition-id { color: #6b21a8; }
-        .partition-item:nth-child(6n+6) .partition-id { color: #9f1239; }
+        /* 与背景协调的文字颜色 */
+        .partition-item:nth-child(8n+1) .partition-id { color: #38bdf8; }
+        .partition-item:nth-child(8n+2) .partition-id { color: #34d399; }
+        .partition-item:nth-child(8n+3) .partition-id { color: #a78bfa; }
+        .partition-item:nth-child(8n+4) .partition-id { color: #ec4899; }
+        .partition-item:nth-child(8n+5) .partition-id { color: #f59e0b; }
+        .partition-item:nth-child(8n+6) .partition-id { color: #0ea5e9; }
+        .partition-item:nth-child(8n+7) .partition-id { color: #f97316; }
+        .partition-item:nth-child(8n+8) .partition-id { color: #8b5cf6; }
 
-        /* 简化标识符样式 */
+        /* 气泡标识符样式 */
         .partition-id:before {
-            content: "•";
-            font-size: 1.2rem;
-            opacity: 0.7;
+            content: "●";
+            font-size: 0.7rem;
         }
 
         .partition-stats {
-            font-size: 0.8rem;
-            color: #64748b;
-            line-height: 1.4;
+            font-size: 0.9rem;
+            color: #47494a;
+            line-height: 1.5;
             display: flex;
             flex-direction: column;
-            gap: 3px;
-        }
-
-        /* 增加轻微分隔线提升层次感 */
-        .partition-stats {
-            padding-top: 4px;
-            border-top: 1px dashed rgba(226, 232, 240, 0.8);
+            gap: 4px;
         }
         
         .stat-row {
@@ -538,7 +561,7 @@
 
         /* 隔行变色（可选，提升可读性） */
         .data-table tbody tr:nth-child(even) td {
-            background-color: #fefefe;
+            background-color: #f5f2f2;
         }
 
         .data-table tbody tr:nth-child(odd) td {
