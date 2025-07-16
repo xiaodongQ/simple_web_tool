@@ -233,12 +233,27 @@ func userStatsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// 总体统计，用户数、文件数、总大小
+		type TotalStats struct {
+			TotalUsers int64
+			TotalFiles uint64
+			TotalSize  float64
+		}
+		totalStats := TotalStats{}
+		for _, user := range userStats {
+			totalStats.TotalUsers++
+			totalStats.TotalFiles += user.TotalFiles
+			totalStats.TotalSize += user.TotalSize
+		}
+
 		data := struct {
+			TotalStats      TotalStats
 			Users           []UserStats
 			Configs         []Config
 			SelectedDBIndex string
 			ElapsedTime     string
 		}{
+			TotalStats:      totalStats,
 			Users:           userStats,
 			Configs:         appConfig.Configs,
 			SelectedDBIndex: dbIndexStr,

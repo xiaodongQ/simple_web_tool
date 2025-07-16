@@ -3,12 +3,14 @@
 
 <div class="config-panel">
     <h2>Database Connection</h2>
-    <select id="db-select" disabled >
-        {{range $i, $config := .Configs}}
-        <option value="{{$i}}" {{if eq (printf "%d" $i) $.SelectedDBIndex}}selected{{end}}>{{$config.Host}}:{{$config.Port}} - {{$config.User}} - {{$config.DBName}}</option>
-        {{end}}
-    </select>
-    <button class="btn" onclick="loadUserStats()" id="load-btn">Load</button>
+    <div class="form-row">
+        <select id="db-select" disabled >
+            {{range $i, $config := .Configs}}
+            <option value="{{$i}}" {{if eq (printf "%d" $i) $.SelectedDBIndex}}selected{{end}}>{{$config.Host}}:{{$config.Port}} - {{$config.User}} - {{$config.DBName}}</option>
+            {{end}}
+        </select>
+        <button class="btn" onclick="loadUserStats()" id="load-btn">Load</button>
+    </div>
 </div>
 
 <div id="user-stats-content">
@@ -34,7 +36,9 @@
         <label for="search-limit-input">Limit Records (Per User):</label>
         <input type="number" id="search-limit-input" value="20" min="1" style="width: 60px; box-sizing: border-box;">
     </div>
-    <button class="btn" onclick="loadBucketStats()" id="search-bucket-btn">Search Bucket</button>
+    <div class="form-actions">
+        <button class="btn" onclick="loadBucketStats()" id="search-bucket-btn">Search Bucket</button>
+    </div>
 </div>
 
 <div id="bucket-stats-content"></div>
